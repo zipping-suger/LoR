@@ -7,14 +7,14 @@ from utils import construct_pointcloud, generate_adverse_task, generate_adverse_
 class Simple2DEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode="human", reference=None, rand_sg=False, num_obstacle_points=100):
+    def __init__(self, render_mode="human", reference=None, rand_sg=False, num_obstacle_points=256):
         super().__init__()
 
         # Define observation & action space
         self.observation_space = gym.spaces.Dict({
             "current": gym.spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32),
             "goal": gym.spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32),
-            # "obstacles": gym.spaces.Box(low=0, high=1, shape=(num_obstacle_points, 2), dtype=np.float32),
+            "obstacles": gym.spaces.Box(low=0, high=1, shape=(num_obstacle_points, 2), dtype=np.float32),
         })
 
         self.action_space = gym.spaces.Box(low=-0.08, high=0.08, shape=(2,), dtype=np.float32)
@@ -52,7 +52,8 @@ class Simple2DEnv(gym.Env):
             self.obstacles = self.reference['obstacles'][idx]
             self.ref_traj = self.reference['trajectories'][idx]
         elif self.reference is not None and self.rand_sg:
-            self.obstacles = self.reference['obstacles'][0]
+            idx = np.random.randint(len(self.reference['obstacles']))
+            self.obstacles = self.reference['obstacles'][idx]
             tasks = generate_adverse_tasks_given_obs(self.obstacles, min_dist=0.5, num_tasks=1)
             self.start, self.goal, _ = map(np.array, tasks[0])
             self.state = np.array(self.start)
@@ -80,50 +81,51 @@ class Simple2DEnv(gym.Env):
         if not (self.bounds[0][0] <= new_state[0] <= self.bounds[0][1] and
                 self.bounds[1][0] <= new_state[1] <= self.bounds[1][1]):
             return self._get_obs(), 0, True, False, {'collision': collision}  # Early termination on out-of-bounds
-
-        # Collision Penalty
-        for ox, oy, r in self.obstacles:
-            if np.linalg.norm(new_state - np.array([ox, oy])) < r:
-                reward -= 0.5  # Collision penalty
-                collision = True
                 
         # Check timeout
         if self.steps >= 25:
             return self._get_obs(), 0, True, False, {'collision': collision}
         
-        # # Imitation reward (exponential)
-        # demo_reward = 0
-        # if self.ref_traj is not None:
-        #     ref_point = self.ref_traj[self.steps] if self.steps < len(self.ref_traj) else self.goal
-        #     distance = np.linalg.norm(new_state - ref_point)
-        #     pos_reward = np.exp(-20 * distance)
-
-        #     ref_action = ref_point - self.ref_traj[self.steps - 1] if self.steps - 1 < len(self.ref_traj) else 0
-        #     action_magnitude_diff = abs(np.linalg.norm(action) - np.linalg.norm(ref_action))
-        #     act_reward = np.exp(-40 * action_magnitude_diff)*0.5
+        # Imitation reward (exponential)
+        demo_reward = 0
+        if self.ref_traj is not None:
+            ref_point = self.ref_traj[self.steps] if self.steps < len(self.ref_traj) else self.goal
+            distance = np.linalg.norm(new_state - ref_point)
+            pos_reward = np.exp(-20 * distance)
             
-        #     demo_reward = pos_reward + act_reward
-        
+            demo_reward = pos_reward
         
         # # Goal dense reward, exponential
         # dense_reward = np.exp(-20 * np.linalg.norm(new_state - self.goal))
         
+        # Collision Penalty
+        for ox, oy, r in self.obstacles:
+            if np.linalg.norm(new_state - np.array([ox, oy])) < r:
+                reward -= 0.1  # Collision penalty
+                collision = True
+                 
+        # Collision Penalty by early termination
+        for ox, oy, r in self.obstacles:
+            if np.linalg.norm(new_state - np.array([ox, oy])) < r:
+                collision = True
+                return self._get_obs(), 0, True, False, {'collision': collision}  # Early termination on collision
+        
         # Check goal condition
-        done = np.linalg.norm(self.state - self.goal) < 0.05
+        done = np.linalg.norm(self.state - self.goal) < 0.03
         if done:
-            reward = reward + 2  # Goal reward
+            reward = reward + 1  # Goal reward
         else:
-            reward = reward
+            reward = reward  + demo_reward
 
         return self._get_obs(), reward, done, False, {'collision': collision}
 
     def _get_obs(self):
         """Construct the observation as a dictionary."""
-        # obstacle_cloud = construct_pointcloud(self.obstacles, self.num_obstacle_points)
+        obstacle_cloud = construct_pointcloud(self.obstacles, self.num_obstacle_points)
         return {
             "current": self.state,
             "goal": self.goal,
-            # "obstacles": obstacle_cloud,
+            "obstacles": obstacle_cloud,
         }
 
 

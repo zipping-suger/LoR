@@ -9,14 +9,17 @@ from models.features_extractor import FeaturesExtractor
 from models.neural_planner import PolicyNet
 
 # Load reference data
-dataset_path = 'data/pd_4k.npz'  # Update this path if needed
+dataset_path = 'data/pd_2.npz'  # Update this path if needed
 reference = np.load(dataset_path, allow_pickle=True)
 
 # Initialize environment
-env = Simple2DEnv(reference=reference, rand_sg=True)
+# env = Simple2DEnv()
+env = Simple2DEnv(reference=reference, rand_sg=False)
+
 
 # Load trained PPO policy
-model = PPO.load("checkpoints/best_model_sparse/best_model.zip")
+model = PPO.load("checkpoints/best_model/best_model.zip")
+# model = PPO.load("checkpoints/ppo_nr_s2/ppo_model_500000_steps.zip")
 
 # # Load Pre-trained model
 # # Create environment
@@ -32,7 +35,7 @@ model = PPO.load("checkpoints/best_model_sparse/best_model.zip")
 
 # # Load the Pre-trained model
 # pretrained_model = PolicyNet(feature_extractor= model.policy.features_extractor, custom_policy= model.policy)
-# pretrained_model.load_state_dict(torch.load("checkpoints/sl_mixed/best_model.pth", weights_only=True))
+# pretrained_model.load_state_dict(torch.load("checkpoints/bc_old/best_model.pth", weights_only=True))
 
 # # Load weights into the existing components (DO NOT replace the modules)
 # model.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
@@ -81,6 +84,7 @@ for i in range(6):
         
     # Get reference trajectory
     ref_traj = env.ref_traj if env.ref_traj is not None else []
+    #   ref_traj = env.ref_traj if env.ref_traj is not None and not env.rand_sg else []
 
     # Plot reference trajectory
     if len(ref_traj) > 0:
@@ -105,10 +109,11 @@ from stable_baselines3.common.evaluation import evaluate_policy
 
 # Initialize variables to track collisions
 total_collisions = 0
-n_eval_episodes = 100  # Number of episodes to evaluate
+n_eval_episodes = 200  # Number of episodes to evaluate
 
 # Create a separate evaluation environment
-eval_env = Simple2DEnv(reference=reference, rand_sg=True)
+# eval_env = Simple2DEnv()
+eval_env = Simple2DEnv(reference=reference, rand_sg=False)
 
 # Evaluate the policy
 mean_reward, std_reward = evaluate_policy(

@@ -4,5 +4,7 @@ __pycache__/
 data/
 checkpoints/
 runs/
+wandb/
+wandb_models/
 
 

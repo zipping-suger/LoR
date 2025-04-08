@@ -30,14 +30,16 @@ def train(model, train_loader, val_loader, criterion, optimizer, device, epochs,
         for batch in train_loader:
             current = batch['current'].to(device)
             goal = batch['goal'].to(device)
-            # obstacles = batch['obstacles'].to(device)
+            obstacles = batch['obstacles'].to(device)
             delta_target = batch['delta'].to(device)
+            
+
             
             # Create observations dictionary
             observations = {
                 "current": current,
                 "goal": goal,
-                # "obstacles": obstacles  # Not used by feature extractor
+                "obstacles": obstacles  # Not used by feature extractor
             }
             
             optimizer.zero_grad()
@@ -61,7 +63,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, device, epochs,
                 observations = {
                     "current": current,
                     "goal": goal,
-                    # "obstacles": obstacles
+                    "obstacles": obstacles
                 }
                 
                 delta_pred = model(observations)
@@ -90,12 +92,12 @@ def train(model, train_loader, val_loader, criterion, optimizer, device, epochs,
 
 def main():
     parser = argparse.ArgumentParser(description='Train Delta Predictor')
-    parser.add_argument('--data_path', type=str, default='data/pd_4k.npz', help='Path to dataset')
+    parser.add_argument('--data_path', type=str, default='data/pd_10k_dy.npz', help='Path to dataset')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
-    parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs')
-    parser.add_argument('--save_dir', type=str, default='checkpoints/sl', help='Directory to save models')
-    parser.add_argument('--log_dir', type=str, default='runs/sl', help='Directory for TensorBoard logs')
+    parser.add_argument('--save_dir', type=str, default='checkpoints/bc', help='Directory to save models')
+    parser.add_argument('--log_dir', type=str, default='runs/bc', help='Directory for TensorBoard logs')
     args = parser.parse_args()
 
     # Device setup
@@ -103,7 +105,7 @@ def main():
     print(f"Using device: {device}")
 
     # Load dataset
-    dataset_path = "data/pd_4k.npz"
+    dataset_path = "data/pd_10k_dy.npz"
     reference = np.load(dataset_path, allow_pickle=True)
     
     # Create environment
@@ -132,14 +134,14 @@ def main():
     collate_fn = lambda batch: {
         'current': torch.stack([x['current'] for x in batch]),
         'goal': torch.stack([x['goal'] for x in batch]),
-        # 'obstacles': torch.stack([x['obstacles'] for x in batch]),
+        'obstacles': torch.stack([x['obstacles'] for x in batch]),
         'delta': torch.stack([x['delta'] for x in batch])
     }
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, 
-                             shuffle=True, collate_fn=collate_fn)
+                             shuffle=True, collate_fn=collate_fn, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
-                           shuffle=False, collate_fn=collate_fn)
+                           shuffle=False, collate_fn=collate_fn, drop_last=True)
 
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)

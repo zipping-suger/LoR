@@ -90,28 +90,28 @@ def generate_dataset(num_samples=1000, num_tasks=5, planner_type='opt', task_typ
 
 if __name__ == "__main__":
     # Configuration
-    NUM_SAMPLES = 4000
+    NUM_SAMPLES = 10_000  # Number of samples to generate
     PLANNER_TYPE = 'rrt'  # 'opt' or 'rrt'
     TASK_TYPE = 'adverse'  # 'random' or 'adverse'
-    SAVE_PATH = 'data/pd_4k.npz'
+    SAVE_PATH = 'data/pd_10k_dy.npz'
     VISUALIZE = True  # Set to False to disable visualization
-    NUM_TASKS = 10 # Ration of trajectory to environment
+    NUM_TASKS = 1 # Ration of trajectory to environment
     NUM_VISUALIZATIONS = 10
     
-    # # Create dataset
-    # print(f"Generating {NUM_SAMPLES} samples using {PLANNER_TYPE} planner...")
-    # dataset = generate_dataset(NUM_SAMPLES, NUM_TASKS, PLANNER_TYPE, TASK_TYPE)
+    # Create dataset
+    print(f"Generating {NUM_SAMPLES} samples using {PLANNER_TYPE} planner...")
+    dataset = generate_dataset(NUM_SAMPLES, NUM_TASKS, PLANNER_TYPE, TASK_TYPE)
     
     
-    # Create dataset for a single environment
-    obstacles = [
-        (0.5, 0.5, 0.15),  # Large obstacle in the center
-        (0.2, 0.2, 0.1),  # Small obstacle top-left
-        (0.8, 0.2, 0.1),  # Small obstacle top-right
-        (0.2, 0.8, 0.1),  # Small obstacle bottom-left
-        (0.8, 0.8, 0.1),  # Small obstacle bottom-right
-    ]
-    dataset = generate_dataset(NUM_SAMPLES, 1, PLANNER_TYPE, TASK_TYPE, obstacles)
+    # # Create dataset for a single environment
+    # obstacles = [
+    #     (0.5, 0.5, 0.15),  # Large obstacle in the center
+    #     (0.2, 0.2, 0.1),  # Small obstacle top-left
+    #     (0.8, 0.2, 0.1),  # Small obstacle top-right
+    #     (0.2, 0.8, 0.1),  # Small obstacle bottom-left
+    #     (0.8, 0.8, 0.1),  # Small obstacle bottom-right
+    # ]
+    # dataset = generate_dataset(NUM_SAMPLES, 1, PLANNER_TYPE, TASK_TYPE, obstacles)
     
     # # Ceate dataset for a single environment with fixed start and goal
     # start_goal = (np.array([0.2, 0.2]), np.array([0.8, 0.8]))

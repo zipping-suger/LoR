@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from utils import construct_pointcloud
 
 class PlanningDataset(Dataset):
-    def __init__(self, data_path, num_obstacle_points=100):
+    def __init__(self, data_path, num_obstacle_points=256):
         """
         Args:
             data_path: Path to .npz data file

@@ -177,7 +177,6 @@ def generate_adverse_tasks_given_obs(obstacles, min_dist=0.5, num_tasks=1, max_p
     return tasks
 
     
-    
 def construct_pointcloud(obstacles, num_points):
     """
     Generate a point cloud representing obstacle boundaries
@@ -193,16 +192,18 @@ def construct_pointcloud(obstacles, num_points):
         return np.empty((0, 2))
     
     points = []
-    num_obstacles = len(obstacles)
-    base_points = num_points // num_obstacles
-    remainder = num_points % num_obstacles
+    total_radius = sum(r for _, _, r in obstacles)  # Total radius
+    points_per_obstacle = [int(num_points * (r / total_radius)) for _, _, r in obstacles]
+    remainder = num_points - sum(points_per_obstacle)
     
-    for i, (ox, oy, r) in enumerate(obstacles):
-        # Calculate points for current obstacle
-        n_pts = base_points + (1 if i < remainder else 0)
-        
+    # Distribute remaining points to the largest obstacles
+    for i in range(remainder):
+        max_index = max(range(len(obstacles)), key=lambda idx: obstacles[idx][2])
+        points_per_obstacle[max_index] += 1
+    
+    for (ox, oy, r), n_pts in zip(obstacles, points_per_obstacle):
         # Generate evenly spaced angles
-        theta = np.linspace(0, 2*np.pi, n_pts, endpoint=False)
+        theta = np.linspace(0, 2 * np.pi, n_pts, endpoint=False)
         
         # Calculate boundary points
         x = ox + r * np.cos(theta)
@@ -211,3 +212,40 @@ def construct_pointcloud(obstacles, num_points):
         points.append(np.column_stack([x, y]))
     
     return np.vstack(points) if points else np.empty((0, 2))
+
+
+# def construct_pointcloud(obstacles, num_points):
+#     """
+#     Generate a point cloud representing obstacle interiors
+    
+#     Args:
+#         obstacles: List of obstacles, each represented as (x, y, radius)
+#         num_points: Total number of points to generate across all obstacles
+        
+#     Returns:
+#         Numpy array of shape (N, 2) containing obstacle interior points
+#     """
+#     if obstacles is None or num_points == 0:
+#         return np.empty((0, 2))
+    
+#     points = []
+#     total_area = sum(r**2 for _, _, r in obstacles)  # Total area proportional to r^2
+#     points_per_obstacle = [int(num_points * (r**2 / total_area)) for _, _, r in obstacles]
+#     remainder = num_points - sum(points_per_obstacle)
+    
+#     # Distribute remaining points to the largest obstacles
+#     for i in range(remainder):
+#         max_index = max(range(len(obstacles)), key=lambda idx: obstacles[idx][2]**2)
+#         points_per_obstacle[max_index] += 1
+    
+#     for (ox, oy, r), n_pts in zip(obstacles, points_per_obstacle):
+#         # Generate random points within the disk
+#         radii = np.sqrt(np.random.uniform(0, 1, n_pts)) * r  # Uniform distribution in the disk
+#         angles = np.random.uniform(0, 2 * np.pi, n_pts)
+        
+#         x = ox + radii * np.cos(angles)
+#         y = oy + radii * np.sin(angles)
+        
+#         points.append(np.column_stack([x, y]))
+    
+#     return np.vstack(points) if points else np.empty((0, 2))
