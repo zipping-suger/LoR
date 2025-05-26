@@ -11,11 +11,19 @@ class Simple2DEnv(gym.Env):
         super().__init__()
 
         # Define observation & action space
+        
+        # Observation space is a dictionary with keys "current", "goal", and "obstacles"
         self.observation_space = gym.spaces.Dict({
             "current": gym.spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32),
             "goal": gym.spaces.Box(low=0, high=1, shape=(2,), dtype=np.float32),
             "obstacles": gym.spaces.Box(low=0, high=1, shape=(num_obstacle_points, 2), dtype=np.float32),
         })
+        
+        # # Flattened observation space: current(2) + goal(2) + obstacles(num_obstacle_points*2)
+        # total_dim = 4 + (num_obstacle_points * 2)  # 2 for current, 2 for goal, rest for obstacles
+        # self.observation_space = gym.spaces.Box(
+        #     low=0, high=1, shape=(total_dim,), dtype=np.float32
+        # )
 
         self.action_space = gym.spaces.Box(low=-0.08, high=0.08, shape=(2,), dtype=np.float32)
 
@@ -65,59 +73,63 @@ class Simple2DEnv(gym.Env):
 
         self.steps = 0
         return self._get_obs(), {}
+    
+    @staticmethod
+    def get_reward_done_info(current_state, action, goal, obstacles):
+        """
+        Compute reward, done, and info (collision, goal_reach) for the given state and action.
+        """
+        # Compute next state
+        next_state = current_state + action
+        
+        done = False
+
+        # Collision Penalty
+        min_dist = np.min([np.linalg.norm(next_state - np.array([ox, oy])) - r for ox, oy, r in obstacles])
+        collision = min_dist < 0
+        reward = min_dist * 5 if collision else 0
+
+        # Progressive Goal Reward
+        dist_to_goal = np.linalg.norm(next_state - goal)
+        prev_dist_to_goal = np.linalg.norm(current_state - goal)
+        reward += prev_dist_to_goal - dist_to_goal  # Reward for getting closer
+
+        goal_reach = dist_to_goal < 0.03
+        if goal_reach:
+            reward += 1  # Extra reward for reaching the goal
+            done = True
+
+        info = {'collision': collision, 'goal_reach': goal_reach}
+        return reward, done, info
 
     def step(self, action):
         action = np.clip(action, self.action_space.low, self.action_space.high)
         new_state = self.state + action
         self.steps += 1
         
-        # Update state
-        self.state = new_state
         collision = False
+        goal_reach = False
         
-        reward = 0
+        reward, done, info = self.get_reward_done_info(self.state, action, self.goal, self.obstacles)
+        
+        collision = info['collision']
+        goal_reach = info['goal_reach']
+        
+        
+        # Update state before the reurn
+        self.state = new_state
         
         # Check boundary constraints
         if not (self.bounds[0][0] <= new_state[0] <= self.bounds[0][1] and
                 self.bounds[1][0] <= new_state[1] <= self.bounds[1][1]):
-            return self._get_obs(), 0, True, False, {'collision': collision}  # Early termination on out-of-bounds
+            return self._get_obs(), reward, True, False, {'collision': collision, 'goal_reach':goal_reach}  # Early termination on out-of-bounds
                 
         # Check timeout
-        if self.steps >= 25:
-            return self._get_obs(), 0, True, False, {'collision': collision}
+        if self.steps >= 30:
+            return self._get_obs(), reward, True, False, {'collision': collision, 'goal_reach':goal_reach}
         
-        # Imitation reward (exponential)
-        demo_reward = 0
-        if self.ref_traj is not None:
-            ref_point = self.ref_traj[self.steps] if self.steps < len(self.ref_traj) else self.goal
-            distance = np.linalg.norm(new_state - ref_point)
-            pos_reward = np.exp(-20 * distance)
-            
-            demo_reward = pos_reward
-        
-        # # Goal dense reward, exponential
-        # dense_reward = np.exp(-20 * np.linalg.norm(new_state - self.goal))
-        
-        # Collision Penalty
-        for ox, oy, r in self.obstacles:
-            if np.linalg.norm(new_state - np.array([ox, oy])) < r:
-                reward -= 0.1  # Collision penalty
-                collision = True
-                 
-        # Collision Penalty by early termination
-        for ox, oy, r in self.obstacles:
-            if np.linalg.norm(new_state - np.array([ox, oy])) < r:
-                collision = True
-                return self._get_obs(), 0, True, False, {'collision': collision}  # Early termination on collision
-        
-        # Check goal condition
-        done = np.linalg.norm(self.state - self.goal) < 0.03
-        if done:
-            reward = reward + 1  # Goal reward
-        else:
-            reward = reward  + demo_reward
 
-        return self._get_obs(), reward, done, False, {'collision': collision}
+        return self._get_obs(), reward, done, False, {'collision': collision, 'goal_reach':goal_reach}
 
     def _get_obs(self):
         """Construct the observation as a dictionary."""
@@ -127,6 +139,18 @@ class Simple2DEnv(gym.Env):
             "goal": self.goal,
             "obstacles": obstacle_cloud,
         }
+    
+    # def _get_obs(self):
+    #     """Construct the observation as a flattened array."""
+    #     obstacle_cloud = construct_pointcloud(self.obstacles, self.num_obstacle_points)
+    #     # Flatten the observation
+    #     flattened_obs = np.concatenate([
+    #         self.state,           # current position (2)
+    #         self.goal,            # goal position (2)
+    #         obstacle_cloud.reshape(-1)  # flattened obstacles (num_obstacle_points*2)
+    #     ]).astype(np.float32)
+        
+    #     return flattened_obs
 
 
     def render(self):
@@ -156,15 +180,19 @@ class Simple2DEnv(gym.Env):
 
 # Example usage
 if __name__ == "__main__":
-    dataset_path = 'data/pd_8k_r1_ad.npz'  # Update this path if needed
+    # Load env from dataset
+    dataset_path = 'data/pd_100_single_env.npz'  # Update this path if needed
     reference = np.load(dataset_path, allow_pickle=True)
     env = Simple2DEnv(reference=reference, rand_sg=False)
+    
+    # # Generate a random task
+    # env = Simple2DEnv(render_mode="human", rand_sg=False)
 
     obs, _ = env.reset()
     done = False
     while not done:
         direction = obs['goal'] - obs['current']  # Goal - Current
-        action = direction / np.linalg.norm(direction) * 0.02  
+        action = direction / np.linalg.norm(direction) * 0.05  
         obs, reward, done, _, _ = env.step(action)
         print("position:", obs['current'])
         print(f"Reward: {reward}, Done: {done}")

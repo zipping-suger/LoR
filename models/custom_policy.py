@@ -4,7 +4,6 @@ from gymnasium import spaces
 import torch as th
 from torch import nn
 
-from stable_baselines3 import PPO
 from stable_baselines3.common.policies import ActorCriticPolicy
 
 
@@ -36,10 +35,13 @@ class CustomNetwork(nn.Module):
             nn.Linear(feature_dim, 64), nn.ReLU(), 
             nn.Linear(64, last_layer_dim_pi), nn.ReLU()
         )
-        # Value network
+        
+        # Value network with LayerNorm
         self.value_net = nn.Sequential(
             nn.Linear(feature_dim, 64), nn.ReLU(),
-            nn.Linear(64,last_layer_dim_vf), nn.ReLU()
+            nn.LayerNorm(64),
+            nn.Linear(64, last_layer_dim_vf), nn.ReLU(),
+            nn.LayerNorm(last_layer_dim_vf)
         )
 
     def forward(self, features: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:

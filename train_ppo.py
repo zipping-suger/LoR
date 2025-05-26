@@ -8,8 +8,6 @@ from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import EvalCallback
-import wandb
-from wandb.integration.sb3 import WandbCallback
 
 from simple_2d import Simple2DEnv
 from models.custom_policy import CustomActorCriticPolicy
@@ -19,42 +17,23 @@ from models.neural_planner import PolicyNet
 # Configuration for the PPO training
 config = {
     "device": "cpu",  # "cuda" for GPU or "cpu"
-    "dataset_path": "data/above_paths.npz",
+    "dataset_path": "data/pd_4k.npz",
     "log_dir": "runs/ppo",
-    "checkpoint_dir": "checkpoints/ppo_base",
+    "checkpoint_dir": "checkpoints/ppo_se",
     "best_model_dir": "./checkpoints/best_model",
-    "wandb_project": "ppo_training",
-    "total_timesteps": 100_000,
-    "batch_size": 64,
+    "total_timesteps": 500_000,
+    "batch_size": 256,
     "features_dim": 64,
-    "log_std_init": -1.0,  # -4.0 for fine tuning
-    "eval_episodes": 20,
+    "log_std_init": -3.5,  # -4.0 for fine tuning
+    "eval_episodes": 500,
     "eval_freq": 10_000,
-    "checkpoint_freq": 10_000,
+    "checkpoint_freq": 50_000,
     "load_pretrained_model": False,  # Whether to load a pre-trained model
     "pretrained_model_path": "checkpoints/best_model_nr/best_model.zip",  # Path to the pre-trained model
 }
 
-class EnhancedWandbCallback(WandbCallback):
-    def _on_step(self) -> bool:
-        super()._on_step()
-        # Log additional info
-        if self.locals.get("infos"):
-            for info in self.locals["infos"]:
-                if "episode" in info:
-                    wandb.log({
-                        "custom/episode_reward": info["episode"]["r"],
-                        "custom/episode_length": info["episode"]["l"],
-                    })
-        return True
 
 if __name__ == "__main__":
-    # Initialize W&B
-    wandb.init(
-        project=config["wandb_project"],
-        config=config,
-    )
-    
     # Set device
     device = config["device"]
     
@@ -62,7 +41,7 @@ if __name__ == "__main__":
     reference = np.load(config["dataset_path"], allow_pickle=True)
     
     # Create environment using the  reference dataset
-    env = Simple2DEnv(reference=reference, rand_sg=False)
+    env = Simple2DEnv(reference=reference, rand_sg=True)
     
     # # Randomize the environment
     # env = Simple2DEnv()
@@ -94,7 +73,7 @@ if __name__ == "__main__":
     
     # Load Pre-trained model
     pretrained_model = PolicyNet(feature_extractor=model.policy.features_extractor, custom_policy=model.policy)
-    pretrained_model.load_state_dict(torch.load("checkpoints/bc_old/best_model.pth", weights_only=True))
+    pretrained_model.load_state_dict(torch.load("checkpoints/bc_se/best_model.pth", weights_only=True))
     
     # Load weights into the existing components (DO NOT replace the modules)
     model.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
@@ -130,7 +109,7 @@ if __name__ == "__main__":
     )
     
     # Set up evaluation environment
-    eval_env = Simple2DEnv(reference=reference, rand_sg=False)
+    eval_env = Simple2DEnv(reference=reference, rand_sg=True)
     
     # Set up evaluation callback
     eval_callback = EvalCallback(
@@ -141,15 +120,6 @@ if __name__ == "__main__":
         render=False,
     )
     
-    # Add WandbCallback for logging to W&B
-    wandb_callback = EnhancedWandbCallback(
-        gradient_save_freq=1000,
-        model_save_path="wandb_models/",
-        verbose=2,
-    )
     
     # Train the model with the evaluation and W&B callbacks
-    model.learn(total_timesteps=config["total_timesteps"], callback=[checkpoint_callback, eval_callback, wandb_callback])
-    
-    # Finish W&B run
-    wandb.finish()
+    model.learn(total_timesteps=config["total_timesteps"], callback=[checkpoint_callback, eval_callback])

@@ -92,11 +92,11 @@ def train(model, train_loader, val_loader, criterion, optimizer, device, epochs,
 
 def main():
     parser = argparse.ArgumentParser(description='Train Delta Predictor')
-    parser.add_argument('--data_path', type=str, default='data/pd_10k_dy.npz', help='Path to dataset')
+    parser.add_argument('--data_path', type=str, default='data/pd_4k.npz', help='Path to dataset')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs')
-    parser.add_argument('--save_dir', type=str, default='checkpoints/bc', help='Directory to save models')
+    parser.add_argument('--save_dir', type=str, default='checkpoints/bc_se', help='Directory to save models')
     parser.add_argument('--log_dir', type=str, default='runs/bc', help='Directory for TensorBoard logs')
     args = parser.parse_args()
 
@@ -105,7 +105,7 @@ def main():
     print(f"Using device: {device}")
 
     # Load dataset
-    dataset_path = "data/pd_10k_dy.npz"
+    dataset_path = args.data_path
     reference = np.load(dataset_path, allow_pickle=True)
     
     # Create environment
