@@ -17,16 +17,16 @@ from models.neural_planner import PolicyNet
 # Configuration for the PPO training
 config = {
     "device": "cpu",  # "cuda" for GPU or "cpu"
-    "dataset_path": "data/pd_4k.npz",
+    "dataset_path": "data/pd_1000_single_env.npz",
     "log_dir": "runs/ppo",
     "checkpoint_dir": "checkpoints/ppo_se",
     "best_model_dir": "./checkpoints/best_model",
-    "total_timesteps": 500_000,
+    "total_timesteps": 400_000,
     "batch_size": 256,
     "features_dim": 64,
     "log_std_init": -3.5,  # -4.0 for fine tuning
     "eval_episodes": 500,
-    "eval_freq": 10_000,
+    "eval_freq": 1_000,
     "checkpoint_freq": 50_000,
     "load_pretrained_model": False,  # Whether to load a pre-trained model
     "pretrained_model_path": "checkpoints/best_model_nr/best_model.zip",  # Path to the pre-trained model
@@ -71,14 +71,14 @@ if __name__ == "__main__":
             batch_size=config["batch_size"],
         )
     
-    # Load Pre-trained model
-    pretrained_model = PolicyNet(feature_extractor=model.policy.features_extractor, custom_policy=model.policy)
-    pretrained_model.load_state_dict(torch.load("checkpoints/bc_se/best_model.pth", weights_only=True))
+    # # Load Pre-trained model
+    # pretrained_model = PolicyNet(feature_extractor=model.policy.features_extractor, custom_policy=model.policy)
+    # pretrained_model.load_state_dict(torch.load("checkpoints/bc_se/best_model.pth", weights_only=True))
     
-    # Load weights into the existing components (DO NOT replace the modules)
-    model.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
-    model.policy.mlp_extractor.policy_net.load_state_dict(pretrained_model.policy_net.state_dict())
-    model.policy.action_net.load_state_dict(pretrained_model.action_net.state_dict())
+    # # Load weights into the existing components (DO NOT replace the modules)
+    # model.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
+    # model.policy.mlp_extractor.policy_net.load_state_dict(pretrained_model.policy_net.state_dict())
+    # model.policy.action_net.load_state_dict(pretrained_model.action_net.state_dict())
     
     # # Check if the feature extractor's parameters have gradients
     # for name, param in model.policy.features_extractor.named_parameters():

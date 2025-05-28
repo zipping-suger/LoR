@@ -38,8 +38,8 @@ def save_data(dataset, filename='planning_data'):
         filename,
         starts=np.array([d['start'] for d in dataset]),
         goals=np.array([d['goal'] for d in dataset]),
-        obstacles=np.array([d['obstacles'] for d in dataset], dtype=object),
-        trajectories=np.array([d['trajectory'] for d in dataset], dtype=object),
+        obstacles=np.array([d['obstacles'] for d in dataset], dtype=np.float32),
+        trajectories=np.array([d['trajectory'] for d in dataset], dtype=np.float32),
     )
 
 def generate_dataset(num_samples=1000, num_tasks=5, planner_type='opt', task_type = 'random', obstacles=None, start_goal = None):

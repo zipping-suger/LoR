@@ -3,6 +3,38 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from utils import construct_pointcloud
 
+class TrajDataset(Dataset):
+    def __init__(self, data_path, num_obstacle_points=256):
+        """
+        Args:
+            data_path: Path to .npz data file
+            num_obstacle_points: Fixed number of points to sample for obstacle cloud
+        """
+        data = np.load(data_path, allow_pickle=True)
+        self.starts = data['starts'].astype(np.float32)
+        self.goals = data['goals'].astype(np.float32)
+        self.obstacles = np.array(data['obstacles'], dtype=np.float32)
+        self.trajectories = [traj.astype(np.float32) for traj in data['trajectories']]
+        self.obstacle_clouds = [construct_pointcloud(obs, num_obstacle_points) 
+                                for obs in self.obstacles]
+
+    def __len__(self):
+        return len(self.trajectories)
+
+    def __getitem__(self, idx):
+        traj = self.trajectories[idx]
+        goal_pos = self.goals[idx]
+        obstacle_cloud = self.obstacle_clouds[idx]
+        start_pos = self.starts[idx]
+        obs_primitives = self.obstacles[idx]
+        return {
+            'start': torch.FloatTensor(start_pos),
+            'goal': torch.FloatTensor(goal_pos),
+            'obstacles': torch.FloatTensor(obstacle_cloud),
+            'obstacle_primitives': torch.FloatTensor(obs_primitives),
+            'trajectory': torch.FloatTensor(traj)
+        }
+
 class PlanningDataset(Dataset):
     def __init__(self, data_path, num_obstacle_points=256):
         """

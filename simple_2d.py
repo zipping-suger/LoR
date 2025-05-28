@@ -72,7 +72,7 @@ class Simple2DEnv(gym.Env):
             self.state = np.array(self.start)
 
         self.steps = 0
-        return self._get_obs(), {}
+        return self._get_obs(), {'obstacles_primitive': self.obstacles}
     
     @staticmethod
     def get_reward_done_info(current_state, action, goal, obstacles):
@@ -122,14 +122,14 @@ class Simple2DEnv(gym.Env):
         # Check boundary constraints
         if not (self.bounds[0][0] <= new_state[0] <= self.bounds[0][1] and
                 self.bounds[1][0] <= new_state[1] <= self.bounds[1][1]):
-            return self._get_obs(), reward, True, False, {'collision': collision, 'goal_reach':goal_reach}  # Early termination on out-of-bounds
+            return self._get_obs(), reward, True, False, {'collision': collision, 'goal_reach':goal_reach, 'obstacles_primitive': self.obstacles}  # Early termination on out-of-bounds
                 
         # Check timeout
         if self.steps >= 30:
-            return self._get_obs(), reward, True, False, {'collision': collision, 'goal_reach':goal_reach}
+            return self._get_obs(), reward, True, False, {'collision': collision, 'goal_reach':goal_reach, 'obstacles_primitive': self.obstacles}
         
 
-        return self._get_obs(), reward, done, False, {'collision': collision, 'goal_reach':goal_reach}
+        return self._get_obs(), reward, done, False, {'collision': collision, 'goal_reach':goal_reach, 'obstacles_primitive': self.obstacles}
 
     def _get_obs(self):
         """Construct the observation as a dictionary."""
