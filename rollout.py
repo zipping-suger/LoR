@@ -12,15 +12,14 @@ from models.neural_planner import PolicyNet
 
 
 # Load reference data
-dataset_path = 'data/pd_4k.npz'  # Update this path if needed
+dataset_path = 'data/pd_10k_dy.npz'  # Update this path if needed
 reference = np.load(dataset_path, allow_pickle=True)
 
 # Initialize environment
 env = Simple2DEnv(reference=reference, rand_sg=True)
 
-
 # # Load trained PPO policy
-model_ppo = PPO.load("checkpoints/best_model_4/best_model.zip")
+model_ppo = PPO.load("checkpoints/best_model/best_model.zip")
 
 # Load Pre-trained model
 # Create environment
@@ -39,7 +38,7 @@ model_bc = PPO(
 
 # Load the Pre-trained model
 pretrained_model = PolicyNet(feature_extractor= model_bc.policy.features_extractor, custom_policy= model_bc.policy)
-pretrained_model.load_state_dict(torch.load("checkpoints/bc_se_4k/best_model.pth", weights_only=True))
+pretrained_model.load_state_dict(torch.load("checkpoints/bc_dy/best_model.pth", weights_only=True))
 
 # Load weights into the existing components (DO NOT replace the modules)
 model_bc.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
@@ -57,31 +56,15 @@ model_opt = PPO(
 
 # Load the Pre-trained model
 pretrained_model = PolicyNet(feature_extractor= model_opt.policy.features_extractor, custom_policy= model_opt.policy)
-pretrained_model.load_state_dict(torch.load("checkpoints/opt_se/opt_policy.pth", weights_only=True))
+pretrained_model.load_state_dict(torch.load("checkpoints/opt_dy/opt_policy.pth", weights_only=True))
 
 # Load weights into the existing components (DO NOT replace the modules)
 model_opt.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
 model_opt.policy.mlp_extractor.policy_net.load_state_dict(pretrained_model.policy_net.state_dict())
 model_opt.policy.action_net.load_state_dict(pretrained_model.action_net.state_dict())
 
-# Load the autoregressive model
-model_autoreg = PPO(
-    CustomActorCriticPolicy,
-    env,
-    policy_kwargs=policy_kwargs,
-    verbose=1)
 
-
-# Load the Pre-trained model
-pretrained_model = PolicyNet(feature_extractor= model_autoreg.policy.features_extractor, custom_policy= model_autoreg.policy)
-pretrained_model.load_state_dict(torch.load("checkpoints/autoreg_se/autoreg_policy.pth", weights_only=True))
-
-# Load weights into the existing components (DO NOT replace the modules)
-model_autoreg.policy.features_extractor.load_state_dict(pretrained_model.feature_extractor.state_dict())
-model_autoreg.policy.mlp_extractor.policy_net.load_state_dict(pretrained_model.policy_net.state_dict())
-model_autoreg.policy.action_net.load_state_dict(pretrained_model.action_net.state_dict())
-
-models = [model_bc, model_autoreg]  # List of models to compare
+models = [model_bc, model_ppo, model_opt]  # List of models to compare
 
 # Dynamically generate colors for models using a colormap
 cmap = get_cmap("tab10")  # Use a colormap (e.g., 'tab10', 'viridis', etc.)

@@ -92,7 +92,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, device, epochs,
 
 def main():
     parser = argparse.ArgumentParser(description='Train Delta Predictor')
-    parser.add_argument('--data_path', type=str, default='data/pd_100_single_env.npz', help='Path to dataset')
+    parser.add_argument('--data_path', type=str, default='data/pd_10k_dy.npz', help='Path to dataset')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs')

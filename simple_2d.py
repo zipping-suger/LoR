@@ -63,8 +63,15 @@ class Simple2DEnv(gym.Env):
             idx = np.random.randint(len(self.reference['obstacles']))
             self.obstacles = self.reference['obstacles'][idx]
             tasks = generate_adverse_tasks_given_obs(self.obstacles, min_dist=0.5, num_tasks=1)
-            self.start, self.goal, _ = map(np.array, tasks[0])
-            self.state = np.array(self.start)
+            # Check if tasks is empty
+            if not tasks:
+                # Use the start and goal from the reference
+                self.start = self.reference['starts'][idx]
+                self.goal = self.reference['goals'][idx]
+                self.state = np.array(self.start)
+            else:
+                self.start, self.goal, _ = map(np.array, tasks[0])
+                self.state = np.array(self.start)
         else:
             # Random State and Obstacle Initialization
             tasks = generate_adverse_task(max_obstacles=6, min_dist=0.5, num_tasks=1)
@@ -181,7 +188,7 @@ class Simple2DEnv(gym.Env):
 # Example usage
 if __name__ == "__main__":
     # Load env from dataset
-    dataset_path = 'data/pd_100_single_env.npz'  # Update this path if needed
+    dataset_path = 'data/pd_10k_dy.npz'  # Update this path if needed
     reference = np.load(dataset_path, allow_pickle=True)
     env = Simple2DEnv(reference=reference, rand_sg=False)
     

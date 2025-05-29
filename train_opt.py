@@ -21,6 +21,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def obstacle_loss(traj, obstacles_primitives, safe_margin=0.03):
     """
     Penalizes trajectory points that are within a 'safe_margin' of any obstacle.
+    Ignores padded obstacles (where radius == 0).
     traj: [H+1, 2] or [B, H+1, 2]
     obstacles_primitives: [B, N, 3] (ox, oy, r)
     """
@@ -33,9 +34,16 @@ def obstacle_loss(traj, obstacles_primitives, safe_margin=0.03):
     centers = obstacles_primitives[..., :2]  # [B, N, 2]
     radii = obstacles_primitives[..., 2]     # [B, N]
 
+    # Mask for valid obstacles (radius > 0)
+    valid_mask = (radii > 0)  # [B, N]
+
     # Compute distances: [B, H+1, N]
     dists = torch.cdist(traj, centers)  # [B, H+1, N]
     dists_to_surface = dists - radii.unsqueeze(1)  # [B, H+1, N]
+
+    # Set distances for padded obstacles to a large positive value (so they don't contribute to penalty)
+    dists_to_surface = dists_to_surface.masked_fill(~valid_mask.unsqueeze(1), 1e6)
+
     min_dists = torch.min(dists_to_surface, dim=2).values  # [B, H+1]
     penalty = torch.relu(safe_margin - min_dists).sum()
     return penalty
@@ -66,7 +74,7 @@ def traj_loss(traj): # traj is [H+1, 2] or [B, H+1, 2]
 
 def main():
     # --- Dataset and DataLoader ---
-    dataset_path = 'data/pd_4k.npz'
+    dataset_path = 'data/pd_10k_dy.npz'
     dataset = TrajDataset(dataset_path)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=True)
     
@@ -88,7 +96,7 @@ def main():
         verbose=1)
 
     model = PolicyNet(feature_extractor=ppo_model.policy.features_extractor, custom_policy=ppo_model.policy).to(device)
-    model.load_state_dict(torch.load("checkpoints/bc_se_4k/best_model.pth", weights_only=True)) # Load the Pre-trained model
+    model.load_state_dict(torch.load("checkpoints/bc_dy/best_model.pth", weights_only=True)) # Load the Pre-trained model
 
     # # Fix the PointNet of feature extractor (freeze its parameters)
     # for param in model.feature_extractor.pointnet.parameters():
@@ -102,7 +110,7 @@ def main():
     # --- Logging and checkpoint setup ---
     import os
     from torch.utils.tensorboard import SummaryWriter
-    save_dir = 'checkpoints/opt_se'
+    save_dir = 'checkpoints/opt_dy'
     log_dir = 'runs/opt'
     os.makedirs(save_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)

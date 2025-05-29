@@ -4,19 +4,27 @@ from torch.utils.data import Dataset, DataLoader
 from utils import construct_pointcloud
 
 class TrajDataset(Dataset):
-    def __init__(self, data_path, num_obstacle_points=256):
+    def __init__(self, data_path, num_obstacle_points=256, max_obstacles=6):
         """
         Args:
             data_path: Path to .npz data file
             num_obstacle_points: Fixed number of points to sample for obstacle cloud
+            max_obstacles: Maximum number of obstacles (for padding)
         """
         data = np.load(data_path, allow_pickle=True)
         self.starts = data['starts'].astype(np.float32)
         self.goals = data['goals'].astype(np.float32)
-        self.obstacles = np.array(data['obstacles'], dtype=np.float32)
+        
+        # Pad obstacles to max_obstacles (each obstacle is [x,y,z])
+        self.obstacles = np.array([
+            np.vstack((obs, np.zeros((max_obstacles - len(obs), 3)))) 
+            if len(obs) < max_obstacles else obs[:max_obstacles]
+            for obs in data['obstacles']
+        ], dtype=np.float32)
+        
         self.trajectories = [traj.astype(np.float32) for traj in data['trajectories']]
         self.obstacle_clouds = [construct_pointcloud(obs, num_obstacle_points) 
-                                for obs in self.obstacles]
+                               for obs in self.obstacles]
 
     def __len__(self):
         return len(self.trajectories)
@@ -103,14 +111,25 @@ def create_data_loader(data_path, batch_size=32, shuffle=True, num_workers=4):
     )
 
 if __name__ == "__main__":
-    # Example usage
-    loader = create_data_loader('data/pd_8k.npz')
+    # # Example usage
+    # loader = create_data_loader('data/pd_8k.npz')
+    
+    # # Show first batch dimensions
+    # batch = next(iter(loader))
+    # print("Batch dimensions:")
+    # print(f"Current positions: {batch['current'].shape}")      # [B, 2]
+    # print(f"Goal positions: {batch['goal'].shape}")            # [B, 2]
+    # print(f"Obstacle clouds: {batch['obstacles'].shape}")      # [B, N, 2]
+    # print(f"Delta targets: {batch['delta'].shape}")            # [B, 2]
+    
+    
+    # --- Dataset and DataLoader ---
+    dataset_path = 'data/pd_10k_dy.npz'
+    dataset = TrajDataset(dataset_path)
+    dataloader = DataLoader(dataset, batch_size=256, shuffle=True)
     
     # Show first batch dimensions
-    batch = next(iter(loader))
+    batch = next(iter(dataloader))
     print("Batch dimensions:")
-    print(f"Current positions: {batch['current'].shape}")      # [B, 2]
-    print(f"Goal positions: {batch['goal'].shape}")            # [B, 2]
-    print(f"Obstacle clouds: {batch['obstacles'].shape}")      # [B, N, 2]
-    print(f"Delta targets: {batch['delta'].shape}")            # [B, 2]
+    print(f"obstacle_primitives: {batch['obstacle_primitives'].shape}")  # [B, num_obstacles, 3]
     
